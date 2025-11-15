@@ -1,0 +1,407 @@
+{
+  "name": "Webhook Data Validation and Deduplication Preview",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-validation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "37ea51d5-a6f9-4686-8436-07915356c8d9",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1120,
+        96
+      ],
+      "webhookId": "c2de4746-959f-4b75-8193-547ca97166e7"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "validateEndpoint",
+              "value": "<__PLACEHOLDER_VALUE__Backend validation endpoint URL (e.g., https://api.example.com/validate)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "dedupeEndpoint",
+              "value": "<__PLACEHOLDER_VALUE__Backend dedupe preview endpoint URL (e.g., https://api.example.com/dedupe/preview)__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "retryAttempts",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "id-4",
+              "name": "retryDelay",
+              "value": 1000,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c037a857-cd28-4296-ad50-7ccd8f7ffa3b",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -896,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "email",
+              "value": "={{ $json.body.email ? $json.body.email.toLowerCase().trim() : $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "url",
+              "value": "={{ $json.body.url ? $json.body.url.toLowerCase().trim() : $json.body.url }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "name",
+              "value": "={{ $json.body.name ? $json.body.name.trim() : $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "description",
+              "value": "={{ $json.body.description ? $json.body.description.trim() : $json.body.description }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "5fced889-6e7b-4e4f-8f99-06370a78c476",
+      "name": "Normalize Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -672,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Configuration').first().json.validateEndpoint }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Idempotency-Key",
+              "value": "={{ $json.headers['x-idempotency-key'] || $runIndex + '-' + $itemIndex }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { email: $json.email, url: $json.url, name: $json.name, description: $json.description } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "cb017c87-459a-45d0-b2a9-b07b294d26a4",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -448,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a4a8b481-6f0d-4052-bd8a-6fb193004f54",
+      "name": "Check Validation Result",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Configuration').first().json.dedupeEndpoint }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Idempotency-Key",
+              "value": "={{ $json.headers['x-idempotency-key'] || $runIndex + '-' + $itemIndex }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { email: $json.email, url: $json.url, name: $json.name, description: $json.description } }}",
+        "options": {}
+      },
+      "id": "b918a4a7-0081-46b8-88b2-734e140414d8",
+      "name": "Get Dedupe Preview",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "message",
+              "value": "Preview generated successfully",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "preview",
+              "value": "={{ $json }}",
+              "type": "object"
+            },
+            {
+              "id": "id-4",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b9c5a377-f48e-4cc1-8405-6b388fbcdf9b",
+      "name": "Format Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "message",
+              "value": "={{ $json.message || 'Validation failed' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "errors",
+              "value": "={{ $json.errors || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "id-4",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "613ffa26-88a2-49f4-b2b2-87b1145ec277",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "3da20080-dc76-42be-89aa-3a01c8f2c71c",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        448,
+        96
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Normalize Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Fields": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Check Validation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Validation Result": {
+      "main": [
+        [
+          {
+            "node": "Get Dedupe Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dedupe Preview": {
+      "main": [
+        [
+          {
+            "node": "Format Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Response": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Response": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "52a9111e-6aa9-4c00-95df-8ed1caf19a79",
+  "meta": {
+    "instanceId": "d8921c2f0fc06876b84cac0c6f14383a7aeeaac1513d9846d9a3c30cae9520c1"
+  },
+  "id": "wOR8aUIUAfKBQzGh",
+  "tags": []
+}
